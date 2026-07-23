@@ -53,3 +53,10 @@ class DocumentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class OTPRequest(BaseModel):
+    identifier: str  # email or phone number
+
+class OTPVerify(BaseModel):
+    identifier: str
+    otp: str
