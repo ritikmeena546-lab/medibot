@@ -37,10 +37,10 @@ app = FastAPI(title="MediBot API", description="Backend & Unified Web App for Me
 # Performance Optimization
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# Configure CORS
+# Configure CORS with regex to support credentials across any domain/origin safely
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

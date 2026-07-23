@@ -1,8 +1,15 @@
 import axios from 'axios';
 
-// In single-platform or deployed mode, fallback to relative '/api' path
+const getBaseURL = () => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  return '/api';
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: getBaseURL(),
+  timeout: 60000, // 60s timeout to allow Render/free tier cold-starts to wake up
 });
 
 api.interceptors.request.use((config) => {
