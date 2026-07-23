@@ -1,0 +1,32 @@
+# Environment variables & secrets
+.env
+*.env
+
+# SQLite Database
+*.db
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+test_*.py
+list_models.py
+
+# Node / React
+node_modules/
+dist/
+build/
+.output/
+
+# Logs
+*.log
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
