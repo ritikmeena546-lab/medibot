@@ -7,12 +7,30 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
-import models
-from database import engine
+import models, auth
+from database import engine, SessionLocal
 from routers import users, chat, documents
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
+
+# Auto-seed default demo account on startup so login always works out-of-the-box
+def seed_demo_user():
+    db = SessionLocal()
+    try:
+        demo_user = db.query(models.User).filter(models.User.email == "demo@medibot.com").first()
+        if not demo_user:
+            hashed_pwd = auth.get_password_hash("password123")
+            demo_user = models.User(email="demo@medibot.com", hashed_password=hashed_pwd)
+            db.add(demo_user)
+            db.commit()
+            print("Successfully seeded demo user: demo@medibot.com / password123")
+    except Exception as e:
+        print("Demo user seeding notice:", e)
+    finally:
+        db.close()
+
+seed_demo_user()
 
 app = FastAPI(title="MediBot API", description="Backend & Unified Web App for MediBot")
 
