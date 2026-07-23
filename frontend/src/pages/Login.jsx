@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity, AlertCircle, CheckCircle2, Zap, KeyRound,
-  ArrowLeft, Mail, Phone, Eye, EyeOff, Shield, RefreshCw
+  ArrowLeft, Mail, Phone, Eye, EyeOff, Shield, RefreshCw, Wifi
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/axios';
@@ -78,6 +78,8 @@ const Login = () => {
   const [error, setError]     = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [slowConn, setSlowConn]   = useState(false); // shows "waking server" hint
+  const slowTimer = useRef(null);
 
   /* Email/Password login */
   const [email, setEmail]       = useState('demo@medibot.com');
@@ -99,26 +101,43 @@ const Login = () => {
 
   const clearMessages = () => { setError(''); setSuccess(''); };
 
+  const startSlow = () => {
+    setSlowConn(false);
+    slowTimer.current = setTimeout(() => setSlowConn(true), 6000);
+  };
+  const stopSlow = () => {
+    clearTimeout(slowTimer.current);
+    setSlowConn(false);
+  };
+
   /* ── Email Login ───────────────────────────────────────────────────────── */
   const handleEmailLogin = async (e) => {
     if (e) e.preventDefault();
-    clearMessages(); setLoading(true);
+    clearMessages(); setLoading(true); startSlow();
     try {
       await login(email, password);
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.response?.data?.detail || "Unable to log in. Please check your connection.");
-    } finally { setLoading(false); }
+      if (!err.response) {
+        setError('Server is starting up — it may take up to 60 seconds on first load. Please try again in a moment.');
+      } else {
+        setError(err.response?.data?.detail || 'Login failed. Please try again.');
+      }
+    } finally { setLoading(false); stopSlow(); }
   };
 
   const handleDemoLogin = async () => {
-    clearMessages(); setLoading(true);
+    clearMessages(); setLoading(true); startSlow();
     try {
       await login('demo@medibot.com', 'password123');
     } catch (err) {
       console.error('Demo login error:', err);
-      setError("Demo login failed. Please try typing credentials manually.");
-    } finally { setLoading(false); }
+      if (!err.response) {
+        setError('Server is waking up — please wait 30 seconds and try again.');
+      } else {
+        setError('Demo login failed. Please try typing credentials manually.');
+      }
+    } finally { setLoading(false); stopSlow(); }
   };
 
   /* ── Forgot Password ───────────────────────────────────────────────────── */
@@ -228,13 +247,22 @@ const Login = () => {
             <h2 className="text-2xl font-bold text-center mb-1">Welcome to MediBot</h2>
             <p className="text-center text-slate-500 dark:text-slate-400 mb-5 text-sm">Access your AI medical assistant</p>
 
+            {/* Slow-connection hint banner */}
+            {slowConn && loading && (
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800
+                text-blue-700 dark:text-blue-300 rounded-2xl text-sm flex items-center gap-2 animate-pulse">
+                <Wifi className="w-4 h-4 flex-shrink-0" />
+                Server is waking up from sleep… this takes up to 60 seconds on first load. Please wait ☕
+              </div>
+            )}
+
             {/* 1-Click Demo */}
             <button type="button" onClick={handleDemoLogin} disabled={loading}
               className="w-full mb-5 py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-600
                 hover:from-emerald-600 hover:to-teal-700 text-white font-bold rounded-2xl transition
                 shadow-md flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50">
               <Zap className="w-5 h-5 text-amber-300 fill-amber-300" />
-              1-Click Instant Demo Login
+              {loading ? 'Connecting to server…' : '1-Click Instant Demo Login'}
             </button>
 
             {/* Divider */}
