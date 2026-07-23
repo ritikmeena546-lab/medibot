@@ -18,7 +18,6 @@ list_models.py
 
 # Node / React
 node_modules/
-dist/
 build/
 .output/
 
