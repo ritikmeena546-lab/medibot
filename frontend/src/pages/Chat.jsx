@@ -12,7 +12,6 @@ import api from '../api/axios';
 const FormattedMessage = ({ content }) => {
   if (!content) return null;
 
-  // Split into lines
   const lines = content.split('\n');
   
   return (
@@ -22,7 +21,7 @@ const FormattedMessage = ({ content }) => {
         if (!trimmed) return <div key={lineIdx} className="h-1" />;
 
         // Header ###
-        if (trimmed.startswith && trimmed.startsWith('#')) {
+        if (trimmed.startsWith && trimmed.startsWith('#')) {
           const headerText = trimmed.replace(/^#+\s*/, '');
           return <h4 key={lineIdx} className="font-bold text-base sm:text-lg text-blue-600 dark:text-blue-400 mt-2 mb-1">{headerText}</h4>;
         }
@@ -257,10 +256,10 @@ const Chat = () => {
         </div>
       </aside>
 
-      {/* Main Chat Area */}
-      <main className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-900 relative">
+      {/* Main Chat Area - Clean Non-Overlapping Flex Column Layout */}
+      <main className="flex-1 flex flex-col h-full min-w-0 bg-white dark:bg-slate-900 overflow-hidden">
         {/* Top Header Bar */}
-        <header className="h-16 flex items-center justify-between px-4 sm:px-6 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-10">
+        <header className="h-16 flex-shrink-0 flex items-center justify-between px-4 sm:px-6 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md z-10">
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 -ml-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition md:hidden">
               <Menu className="h-6 w-6" />
@@ -281,8 +280,8 @@ const Chat = () => {
           </Link>
         </header>
 
-        {/* Message Container */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 pb-44 space-y-6">
+        {/* Message Container - Automatically occupies available vertical space */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 min-h-0">
           <div className="max-w-3xl mx-auto space-y-6">
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex gap-3 sm:gap-4 animate-fade-in ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -342,8 +341,8 @@ const Chat = () => {
           </div>
         </div>
 
-        {/* Input Bar & Suggestion Chips */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white/95 to-transparent dark:from-slate-900 dark:via-slate-900/95 pt-8 pb-4 px-4">
+        {/* Input Bar & Suggestion Chips - Clean flex-shrink-0 footer layout */}
+        <div className="flex-shrink-0 bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 p-4 pt-3">
           <div className="max-w-3xl mx-auto space-y-3">
             {/* Quick Suggestion Chips (when starting new conversation) */}
             {messages.length <= 1 && !loading && (
@@ -361,7 +360,7 @@ const Chat = () => {
               </div>
             )}
 
-            <form onSubmit={handleSend} className="relative flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 rounded-3xl p-2 shadow-lg border border-slate-200 dark:border-slate-700/80 focus-within:ring-2 focus-within:ring-blue-500/50 transition">
+            <form onSubmit={handleSend} className="relative flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 rounded-3xl p-2 shadow-sm border border-slate-200 dark:border-slate-700/80 focus-within:ring-2 focus-within:ring-blue-500/50 transition">
               <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".pdf" className="hidden" />
               <button 
                 type="button" 
