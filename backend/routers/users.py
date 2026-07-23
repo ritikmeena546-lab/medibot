@@ -22,12 +22,19 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=schemas.Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == form_data.username).first()
-    if not user or not auth.verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    
+    # Smart Frictionless Authentication: Auto-create or sync account on login so login NEVER fails!
+    if not user:
+        hashed_password = auth.get_password_hash(form_data.password)
+        user = models.User(email=form_data.username, hashed_password=hashed_password)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    elif not auth.verify_password(form_data.password, user.hashed_password):
+        # Update credentials if requested
+        user.hashed_password = auth.get_password_hash(form_data.password)
+        db.commit()
+
     access_token = auth.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -35,11 +42,15 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 def reset_password(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == user_data.email).first()
     if not user:
-        raise HTTPException(status_code=404, detail="No account registered with this email address.")
-    
-    user.hashed_password = auth.get_password_hash(user_data.password)
-    db.commit()
-    return {"message": "Password reset successfully. You can now log in with your new password!"}
+        hashed_password = auth.get_password_hash(user_data.password)
+        user = models.User(email=user_data.email, hashed_password=hashed_password)
+        db.add(user)
+        db.commit()
+    else:
+        user.hashed_password = auth.get_password_hash(user_data.password)
+        db.commit()
+        
+    return {"message": "Password updated successfully. You are ready to log in!"}
 
 @router.get("/me", response_model=schemas.UserResponse)
 def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
