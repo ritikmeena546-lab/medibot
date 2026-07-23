@@ -31,6 +31,16 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     access_token = auth.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
+@router.post("/reset-password")
+def reset_password(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == user_data.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="No account registered with this email address.")
+    
+    user.hashed_password = auth.get_password_hash(user_data.password)
+    db.commit()
+    return {"message": "Password reset successfully. You can now log in with your new password!"}
+
 @router.get("/me", response_model=schemas.UserResponse)
 def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
     return current_user
