@@ -1,7 +1,7 @@
 fastapi[standard]
 uvicorn
 sqlalchemy
-passlib[bcrypt]
+bcrypt
 python-jose[cryptography]
 python-multipart
 google-genai
