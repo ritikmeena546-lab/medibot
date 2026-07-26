@@ -25,7 +25,8 @@ function AppRoutes() {
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            {/* The primary protected route is now Chat */}
+            <Route path="/dashboard" element={<Navigate to="/chat" />} />
             <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
             <Route path="/chat/:id" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
           </Routes>

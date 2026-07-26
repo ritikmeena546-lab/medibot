@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { 
   Menu, Plus, MessageSquare, Send, Sun, Moon, LogOut, 
   Paperclip, AlertTriangle, ArrowLeft, Copy, Check, Sparkles, Shield, 
-  Stethoscope, FileText, Activity, Heart, Thermometer, Pill
+  Stethoscope, FileText, Activity, Heart, Thermometer, Pill, Mic, MicOff
 } from 'lucide-react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
@@ -72,7 +72,7 @@ const Chat = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isDarkMode, toggleTheme } = useTheme();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [conversations, setConversations] = useState([]);
@@ -81,12 +81,50 @@ const Chat = () => {
   const [loading, setLoading] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState(null);
   
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef(null);
+  
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  const welcomeMsg = { 
-    role: 'assistant', 
-    content: '🩺 **Welcome to MediBot Clinical AI!**\n\nI am your dedicated medical & health assistant. I can assist you with:\n* **Symptom Evaluation & Guidance**\n* **Medical PDF Report Analysis**\n* **Health Precautions & Wellness Information**\n\nHow can I assist your health assessment today?' 
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = true;
+      
+      recognitionRef.current.onresult = (event) => {
+        let currentTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          currentTranscript += event.results[i][0].transcript;
+        }
+        setInput(currentTranscript);
+      };
+
+      recognitionRef.current.onerror = (event) => {
+        console.error('Speech recognition error', event.error);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      if (!recognitionRef.current) {
+        alert("Your browser does not support Voice Assistant feature.");
+        return;
+      }
+      recognitionRef.current?.start();
+      setIsListening(true);
+    }
   };
 
   useEffect(() => {
@@ -94,13 +132,20 @@ const Chat = () => {
     if (id) {
       fetchMessages(id);
     } else {
-      setMessages([welcomeMsg]);
+      setMessages([]);
     }
   }, [id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 18) return "Good Afternoon";
+    return "Good Evening";
+  };
 
   const fetchConversations = async () => {
     try {
@@ -114,7 +159,7 @@ const Chat = () => {
   const fetchMessages = async (convId) => {
     try {
       const res = await api.get(`/chat/conversations/${convId}`);
-      setMessages([welcomeMsg, ...res.data.messages]);
+      setMessages(res.data.messages);
     } catch (e) {
       console.error(e);
     }
@@ -122,7 +167,7 @@ const Chat = () => {
 
   const startNewChat = () => {
     navigate('/chat');
-    setMessages([welcomeMsg]);
+    setMessages([]);
     if (window.innerWidth < 768) setSidebarOpen(false);
   };
 
@@ -326,6 +371,39 @@ const Chat = () => {
 
         {/* Message Container - Non-overlapping auto-resizing flex area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 min-h-0">
+          
+          {messages.length === 0 && !loading && (
+            <div className="h-full flex flex-col items-center justify-center space-y-6 animate-fade-in px-4 pb-10">
+              <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-teal-500/20 mb-2">
+                <Activity className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white text-center">
+                {getGreeting()}, {user?.email?.split('@')[0]}
+              </h1>
+              <p className="text-slate-500 dark:text-slate-400 text-center max-w-lg text-sm sm:text-base">
+                How can I assist your health assessment today? Describe your symptoms, ask a medical question, or upload a report for clinical analysis.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl mt-8">
+                {MEDICAL_SUGGESTIONS.map((s, idx) => (
+                  <button 
+                    key={idx}
+                    onClick={() => sendMessageText(s.text)}
+                    className="flex flex-col items-start gap-2 p-5 bg-white dark:bg-slate-800/80 hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-slate-200/80 dark:border-slate-700 hover:border-teal-300 dark:hover:border-teal-700 rounded-2xl text-left transition-all group shadow-sm hover:shadow-md"
+                  >
+                    <div className="flex items-center gap-3 mb-1">
+                      <div className="p-2 bg-slate-50 dark:bg-slate-700 rounded-lg group-hover:bg-white dark:group-hover:bg-slate-800 transition-colors shadow-xs">
+                        {s.icon}
+                      </div>
+                      <div className="font-bold text-slate-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition">{s.title}</div>
+                    </div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed w-full">{s.text}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="max-w-3xl mx-auto space-y-6">
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex gap-3 sm:gap-4 animate-fade-in ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -396,27 +474,6 @@ const Chat = () => {
         {/* Input Bar & Medical Category Suggestions */}
         <div className="flex-shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-teal-100 dark:border-slate-800 p-4 pt-3 z-10">
           <div className="max-w-3xl mx-auto space-y-3">
-            {/* Medical Category Prompt Chips */}
-            {messages.length <= 1 && !loading && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2 animate-fade-in">
-                {MEDICAL_SUGGESTIONS.map((s, idx) => (
-                  <button 
-                    key={idx}
-                    onClick={() => sendMessageText(s.text)}
-                    className="flex items-start gap-3 p-3 bg-slate-50 dark:bg-slate-800/80 hover:bg-teal-50 dark:hover:bg-teal-950/40 border border-teal-100 dark:border-teal-900/50 hover:border-teal-300 dark:hover:border-teal-700 rounded-2xl text-left transition-all group shadow-xs"
-                  >
-                    <div className="p-2 bg-white dark:bg-slate-800 rounded-xl shadow-xs group-hover:scale-105 transition-transform">
-                      {s.icon}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition">{s.title}</div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{s.text}</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
             <form onSubmit={handleSend} className="relative flex items-center gap-2 bg-slate-50 dark:bg-slate-800/90 rounded-3xl p-2 shadow-md border border-teal-200/80 dark:border-teal-900/60 focus-within:ring-2 focus-within:ring-teal-500/50 focus-within:border-teal-400 transition">
               <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" />
               <button 
@@ -427,10 +484,20 @@ const Chat = () => {
               >
                 <Paperclip className="h-5 w-5" />
               </button>
+              
+              <button 
+                type="button" 
+                onClick={toggleListening} 
+                className={`p-3 transition rounded-full flex-shrink-0 ${isListening ? 'bg-rose-100 text-rose-600 animate-pulse' : 'text-teal-600/70 dark:text-teal-400/70 hover:text-teal-700 dark:hover:text-teal-300 hover:bg-teal-100/50 dark:hover:bg-slate-700'}`}
+                title="Voice Assistant"
+              >
+                {isListening ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+              </button>
+
               <textarea 
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Describe your medical symptoms or ask a health question..."
+                placeholder={isListening ? "Listening..." : "Describe your medical symptoms or ask a health question..."}
                 className="w-full max-h-32 min-h-[44px] bg-transparent resize-none outline-none py-3 px-2 text-slate-900 dark:text-slate-100 text-sm sm:text-base placeholder:text-slate-400"
                 rows="1"
                 onKeyDown={(e) => {
