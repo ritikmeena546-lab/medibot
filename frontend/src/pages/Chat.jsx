@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { 
   Menu, Plus, MessageSquare, Send, Sun, Moon, LogOut, 
   Paperclip, AlertTriangle, ArrowLeft, Copy, Check, Sparkles, Shield, 
-  Stethoscope, FileText, Activity, Heart, Thermometer, Pill, Mic, MicOff
+  Stethoscope, FileText, Activity, Heart, Thermometer, Pill, Mic, MicOff, Volume2
 } from 'lucide-react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios';
@@ -82,6 +82,8 @@ const Chat = () => {
   const [copiedIdx, setCopiedIdx] = useState(null);
   
   const [isListening, setIsListening] = useState(false);
+  const [usedVoiceInput, setUsedVoiceInput] = useState(false);
+  const [speakingIdx, setSpeakingIdx] = useState(null);
   const recognitionRef = useRef(null);
   
   const messagesEndRef = useRef(null);
@@ -92,14 +94,12 @@ const Chat = () => {
     if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = true;
+      recognitionRef.current.interimResults = false;
       
       recognitionRef.current.onresult = (event) => {
-        let currentTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          currentTranscript += event.results[i][0].transcript;
-        }
-        setInput(currentTranscript);
+        const transcript = event.results[0][0].transcript;
+        setInput(prev => (prev ? prev + ' ' : '') + transcript);
+        setUsedVoiceInput(true);
       };
 
       recognitionRef.current.onerror = (event) => {
@@ -122,9 +122,36 @@ const Chat = () => {
         alert("Your browser does not support Voice Assistant feature.");
         return;
       }
+      setUsedVoiceInput(true);
       recognitionRef.current?.start();
       setIsListening(true);
     }
+  };
+
+  const speakMessage = (text, idx) => {
+    if (!('speechSynthesis' in window)) {
+      alert("Your browser does not support Text-to-Speech.");
+      return;
+    }
+    
+    // If clicking the same one that is speaking, stop it
+    if (speakingIdx === idx && window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+      setSpeakingIdx(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    
+    const cleanText = text.replace(/[*_#]/g, ''); // Basic markdown strip
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.rate = 1.0;
+    
+    utterance.onend = () => setSpeakingIdx(null);
+    utterance.onerror = () => setSpeakingIdx(null);
+    
+    setSpeakingIdx(idx);
+    window.speechSynthesis.speak(utterance);
   };
 
   useEffect(() => {
@@ -192,6 +219,10 @@ const Chat = () => {
         fetchConversations();
       } else {
         setMessages(prev => [...prev, res.data]);
+        if (usedVoiceInput) {
+          speakMessage(res.data.content, messages.length + 1);
+          setUsedVoiceInput(false);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -440,15 +471,24 @@ const Chat = () => {
                     </div>
                   )}
 
-                  {/* Copy Button for Assistant */}
+                  {/* Actions for Assistant */}
                   {msg.role === 'assistant' && (
-                    <button 
-                      onClick={() => copyToClipboard(msg.content, idx)} 
-                      className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-teal-600 dark:hover:text-teal-300 rounded-lg hover:bg-teal-50 dark:hover:bg-slate-800 transition"
-                      title="Copy response"
-                    >
-                      {copiedIdx === idx ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
+                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 flex items-center gap-1 transition">
+                      <button 
+                        onClick={() => speakMessage(msg.content, idx)} 
+                        className={`p-1.5 rounded-lg transition ${speakingIdx === idx ? 'text-teal-600 dark:text-teal-400 bg-teal-100 dark:bg-teal-900/50 animate-pulse' : 'text-slate-400 hover:text-teal-600 dark:hover:text-teal-300 hover:bg-teal-50 dark:hover:bg-slate-800'}`}
+                        title={speakingIdx === idx ? "Stop speaking" : "Read aloud"}
+                      >
+                        <Volume2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button 
+                        onClick={() => copyToClipboard(msg.content, idx)} 
+                        className="p-1.5 text-slate-400 hover:text-teal-600 dark:hover:text-teal-300 rounded-lg hover:bg-teal-50 dark:hover:bg-slate-800 transition"
+                        title="Copy response"
+                      >
+                        {copiedIdx === idx ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
