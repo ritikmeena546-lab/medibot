@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { GoogleLogin } from '@react-oauth/google';
 
 /* Reusable password input with show/hide toggle */
 const PasswordInput = ({ value, onChange, placeholder = '••••••••', id }) => {
@@ -36,7 +37,8 @@ const Signup = () => {
   const [password, setPassword] = useState('');
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
-  const { register } = useAuth();
+  const auth = useAuth();
+  const { register } = auth;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -51,6 +53,16 @@ const Signup = () => {
     }
   };
 
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setError(''); setLoading(true);
+    try {
+      await auth.googleLogin(credentialResponse.credential);
+    } catch (err) {
+      console.error('Google signup error:', err);
+      setError(err.response?.data?.detail || 'Google Sign Up failed. Please try again.');
+    } finally { setLoading(false); }
+  };
+
   return (
     <div className="flex-grow flex items-center justify-center p-4 bg-slate-50 dark:bg-slate-900">
       <div className="w-full max-w-md p-8 bg-white dark:bg-slate-800 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700">
@@ -63,6 +75,26 @@ const Signup = () => {
         <p className="text-center text-slate-500 dark:text-slate-400 mb-8">Join MediBot to manage your health smarter</p>
 
         {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>}
+
+        {/* Google Sign In */}
+        <div className="flex justify-center mb-5 mt-4">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError('Google Sign Up failed. Please try again.')}
+            useOneTap
+            theme="filled_blue"
+            shape="rectangular"
+            width="100%"
+          />
+        </div>
+
+        <div className="relative flex py-2 items-center mb-5">
+          <div className="flex-grow border-t border-slate-200 dark:border-slate-700" />
+          <span className="flex-shrink mx-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Or sign up with email
+          </span>
+          <div className="flex-grow border-t border-slate-200 dark:border-slate-700" />
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>

@@ -60,3 +60,7 @@ class OTPRequest(BaseModel):
 class OTPVerify(BaseModel):
     identifier: str
     otp: str
+
+class GoogleLoginRequest(BaseModel):
+    credential: str
+

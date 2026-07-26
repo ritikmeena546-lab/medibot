@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/axios';
+import { GoogleLogin } from '@react-oauth/google';
 
 /* ─── Small reusable password input with show/hide ──────────────────────── */
 const PasswordInput = ({ value, onChange, placeholder = '••••••••', className = '', id }) => {
@@ -97,7 +98,8 @@ const Login = () => {
   const [demoOtp, setDemoOtp]             = useState('');
   const [otpExpired, setOtpExpired]       = useState(false);
 
-  const { login } = useAuth();
+  const auth = useAuth();
+  const { login } = auth;
 
   const clearMessages = () => { setError(''); setSuccess(''); };
 
@@ -137,6 +139,16 @@ const Login = () => {
       } else {
         setError('Demo login failed. Please try typing credentials manually.');
       }
+    } finally { setLoading(false); stopSlow(); }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    clearMessages(); setLoading(true); startSlow();
+    try {
+      await auth.googleLogin(credentialResponse.credential);
+    } catch (err) {
+      console.error('Google login error:', err);
+      setError(err.response?.data?.detail || 'Google Login failed. Please try again.');
     } finally { setLoading(false); stopSlow(); }
   };
 
@@ -265,13 +277,24 @@ const Login = () => {
               {loading ? 'Connecting to server…' : '1-Click Instant Demo Login'}
             </button>
 
-            {/* Divider */}
             <div className="relative flex py-2 items-center mb-5">
               <div className="flex-grow border-t border-slate-200 dark:border-slate-700" />
               <span className="flex-shrink mx-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Or sign in with
               </span>
               <div className="flex-grow border-t border-slate-200 dark:border-slate-700" />
+            </div>
+
+            {/* Google Sign In */}
+            <div className="flex justify-center mb-5">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => setError('Google Login failed. Please try again.')}
+                useOneTap
+                theme="filled_blue"
+                shape="rectangular"
+                width="100%"
+              />
             </div>
 
             {/* Tab switcher */}

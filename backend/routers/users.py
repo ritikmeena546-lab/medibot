@@ -3,7 +3,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 import models, schemas, auth
 from database import get_db
-import random, time
+import random, time, os
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
 
@@ -82,6 +84,41 @@ def verify_otp(data: schemas.OTPVerify, db: Session = Depends(get_db)):
 
     access_token = auth.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
+
+# ── Google OAuth2 Login ──────────────────────────────────────────────────────
+@router.post("/google-login", response_model=schemas.Token)
+def google_login(data: schemas.GoogleLoginRequest, db: Session = Depends(get_db)):
+    try:
+        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        
+        # Verify the Google token. 
+        # If client_id is set, it checks audience strictly. Otherwise just signature.
+        if client_id:
+            idinfo = id_token.verify_oauth2_token(data.credential, google_requests.Request(), client_id)
+        else:
+            # We skip audience verification if GOOGLE_CLIENT_ID is not configured yet
+            # so development doesn't completely block if they just test the UI side.
+            # But in production, GOOGLE_CLIENT_ID must be set.
+            idinfo = id_token.verify_oauth2_token(data.credential, google_requests.Request())
+            
+        email = idinfo.get("email")
+        if not email:
+            raise HTTPException(status_code=400, detail="Google token does not contain an email.")
+
+        # Frictionless auth logic
+        user = db.query(models.User).filter(models.User.email == email).first()
+        if not user:
+            hashed_password = auth.get_password_hash(email + "_google_auto")
+            user = models.User(email=email, hashed_password=hashed_password)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+        access_token = auth.create_access_token(data={"sub": user.email})
+        return {"access_token": access_token, "token_type": "bearer"}
+
+    except ValueError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {str(e)}")
 
 # ── Password Reset ────────────────────────────────────────────────────────────
 @router.post("/reset-password")
