@@ -168,27 +168,51 @@ const Chat = () => {
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-       alert("Only PDF medical report files are supported.");
+    
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+       alert("Only images (JPG, PNG, WEBP) and PDF medical reports are supported.");
        return;
     }
     
     setLoading(true);
-    const formData = new FormData();
-    formData.append('file', file);
     
     try {
-      await api.post('/documents/upload', formData, {
+      // 1. Create a new conversation if there is no active ID
+      let activeId = id;
+      if (!activeId) {
+        const convRes = await api.post('/chat/conversations', { title: 'Report Analysis: ' + file.name });
+        activeId = convRes.data.id;
+      }
+
+      // Add user message to UI immediately for feedback
+      const fileTypeLabel = file.type.includes('image') ? 'Image' : 'PDF';
+      setMessages(prev => [...prev, { 
+        role: 'user', 
+        content: `*[User uploaded ${fileTypeLabel}: ${file.name}]*`
+      }]);
+
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await api.post(`/chat/conversations/${activeId}/file`, formData, {
          headers: { 'Content-Type': 'multipart/form-data' }
       });
+      
+      if (!id) {
+        navigate(`/chat/${activeId}`, { replace: true });
+        fetchConversations();
+      } else {
+        setMessages(prev => [...prev, res.data]);
+      }
+      
+    } catch (err) {
+      console.error(err);
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: `📄 **Medical Report Attached:** \`${file.name}\`\n\nYour lab document has been securely logged. Ask any question regarding specific test parameters or medical terms in your report!`, 
+        content: `⚠️ Failed to analyze ${file.name}. ${err.response?.data?.detail || err.message}`, 
         is_emergency: false 
       }]);
-    } catch (e) {
-      console.error(e);
-      alert("Failed to upload document. Please try again.");
     } finally {
       setLoading(false);
       e.target.value = null;
@@ -394,12 +418,12 @@ const Chat = () => {
             )}
 
             <form onSubmit={handleSend} className="relative flex items-center gap-2 bg-slate-50 dark:bg-slate-800/90 rounded-3xl p-2 shadow-md border border-teal-200/80 dark:border-teal-900/60 focus-within:ring-2 focus-within:ring-teal-500/50 focus-within:border-teal-400 transition">
-              <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".pdf" className="hidden" />
+              <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" />
               <button 
                 type="button" 
                 onClick={() => fileInputRef.current?.click()} 
                 className="p-3 text-teal-600/70 dark:text-teal-400/70 hover:text-teal-700 dark:hover:text-teal-300 transition rounded-full hover:bg-teal-100/50 dark:hover:bg-slate-700"
-                title="Attach PDF Medical Lab Report"
+                title="Attach PDF or Image Medical Report/X-Ray"
               >
                 <Paperclip className="h-5 w-5" />
               </button>
